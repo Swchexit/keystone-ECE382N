@@ -38,4 +38,13 @@ sbi_sm_random(void);
 unsigned long
 sbi_sm_call_plugin(uintptr_t plugin_id, uintptr_t call_id, uintptr_t arg0, uintptr_t arg1);
 
+unsigned long
+sbi_sm_connect_enclaves(unsigned long eid1, unsigned long eid2);
+
+unsigned long
+sbi_sm_sync_disconnect_enclaves(unsigned long eid1, unsigned long eid2);
+
+unsigned long
+sbi_sm_async_disconnect_enclaves(unsigned long eid1, unsigned long eid2);
+
 #endif

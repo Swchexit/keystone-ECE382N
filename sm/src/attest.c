@@ -39,6 +39,7 @@ unsigned long validate_and_hash_enclave(struct enclave* enclave){
 
   // TODO: ensure untrusted and free sizes
 
+  // TODO: add connected/shared memory regions to hash
   // hash the epm contents
   int valid = validate_and_hash_epm(&ctx, enclave);
 

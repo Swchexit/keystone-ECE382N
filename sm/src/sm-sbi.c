@@ -12,6 +12,7 @@
 #include <sbi/riscv_asm.h>
 #include <sbi/sbi_console.h>
 
+// TODO: add timing record here to evaluate overheads
 unsigned long sbi_sm_create_enclave(unsigned long* eid, uintptr_t create_args)
 {
   struct keystone_sbi_create_t create_args_local;
@@ -95,5 +96,44 @@ unsigned long sbi_sm_call_plugin(uintptr_t plugin_id, uintptr_t call_id, uintptr
 {
   unsigned long ret;
   ret = call_plugin(cpu_get_enclave_id(), plugin_id, call_id, arg0, arg1);
+  return ret;
+}
+
+unsigned long sbi_sm_connect_enclaves(unsigned long eid1, unsigned long eid2)
+{
+  unsigned long ret;
+
+  /* an enclave cannot call this SBI */
+  // if (cpu_is_enclave_context()) {
+  //   return ENCLAVE_SBI_PROHIBITED;
+  // }
+
+  ret = connect_enclaves((unsigned int) eid1, (unsigned int) eid2);
+  return ret;
+}
+
+unsigned long sbi_sm_sync_disconnect_enclaves(unsigned long eid1, unsigned long eid2)
+{
+  unsigned long ret;
+
+  /* an enclave cannot call this SBI */
+  // if (cpu_is_enclave_context()) {
+  //   return ENCLAVE_SBI_PROHIBITED;
+  // }
+
+  ret = disconnect_enclaves((unsigned int) eid1, (unsigned int) eid2);
+  return ret;
+}
+
+unsigned long sbi_sm_async_disconnect_enclaves(unsigned long eid1, unsigned long eid2)
+{
+  unsigned long ret;
+
+  /* an enclave cannot call this SBI */
+  // if (cpu_is_enclave_context()) {
+  //   return ENCLAVE_SBI_PROHIBITED;
+  // }
+
+  ret = async_disconnect_enclaves((unsigned int) eid1, (unsigned int) eid2);
   return ret;
 }

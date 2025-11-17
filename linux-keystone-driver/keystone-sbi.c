@@ -23,3 +23,9 @@ struct sbiret sbi_sm_resume_enclave(unsigned long eid) {
       SBI_SM_RESUME_ENCLAVE,
       eid, 0, 0, 0, 0, 0);
 }
+
+struct sbiret sbi_sm_connect_enclaves(unsigned long eid1, unsigned long eid2) {
+  return sbi_ecall(SBI_EXT_EXPERIMENTAL_KEYSTONE_ENCLAVE,
+      SBI_SM_CON_ENCLAVES,
+      eid1, eid2, 0, 0, 0, 0);
+}

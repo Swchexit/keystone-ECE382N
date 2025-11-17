@@ -16,11 +16,14 @@ int destroy_enclave(struct enclave* enclave)
 {
   struct epm* epm;
   struct utm* utm;
+  struct sem* sem;
+
   if (enclave == NULL)
     return -ENOSYS;
 
   epm = enclave->epm;
   utm = enclave->utm;
+  sem = enclave->sem;
 
   if (epm)
   {
@@ -31,6 +34,11 @@ int destroy_enclave(struct enclave* enclave)
   {
     utm_destroy(utm);
     kfree(utm);
+  }
+  if (sem)
+  {
+    sem_destroy(sem);
+    kfree(sem);
   }
   kfree(enclave);
   return 0;
@@ -48,6 +56,7 @@ struct enclave* create_enclave(unsigned long min_pages)
 
   enclave->eid = -1;
   enclave->utm = NULL;
+  enclave->sem = NULL;
   enclave->close_on_pexit = 1;
 
   enclave->epm = kmalloc(sizeof(struct epm), GFP_KERNEL);

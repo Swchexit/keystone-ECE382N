@@ -13,6 +13,13 @@ _start:
   // a6: untrusted_ptr
   // a7: untrusted_size
 
+  // t3: sem_base (PA)
+  // t4: sem_size (bytes)
+  // t5: sem_vaddr (VA), currently not passed
+  // s9: sem_connector_base (PA)
+  // s10: sem_connector_size (bytes)
+  // s11: sem_connector_vaddr (VA), currently not used
+
   // use designated stack
   la sp, _estack
 

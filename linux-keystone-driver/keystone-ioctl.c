@@ -67,6 +67,14 @@ int keystone_finalize_enclave(unsigned long arg)
     create_args.utm_region.size = 0;
   }
 
+  if (enclave->sem) {
+    create_args.sem_region.paddr = __pa(enclave->sem->ptr);
+    create_args.sem_region.size = enclave->sem->size;
+  } else {
+    create_args.sem_region.paddr = 0;
+    create_args.sem_region.size = 0;
+  }
+
   // physical addresses for runtime, user, and freemem
   create_args.runtime_paddr = enclp->runtime_paddr;
   create_args.user_paddr = enclp->user_paddr;
@@ -151,6 +159,72 @@ int utm_init_ioctl(struct file *filp, unsigned long arg)
   return ret;
 }
 
+int sem_init_ioctl(struct file *filp, unsigned long arg)
+{
+  int ret = 0;
+  struct sem *sem;
+  struct enclave *enclave;
+  struct keystone_ioctl_create_enclave *enclp = (struct keystone_ioctl_create_enclave *) arg;
+  long long unsigned untrusted_size = enclp->sem_size;
+
+  // keystone_err("sem_init_ioctl");
+  // print_params(enclp);
+  enclave = get_enclave_by_id(enclp->eid);
+  // print_enclave(enclave);
+  if(!enclave) {
+    keystone_err("invalid enclave id 4\n");
+    return -EINVAL;
+  }
+
+  sem = kmalloc(sizeof(struct sem), GFP_KERNEL);
+  if (!sem) {
+    ret = -ENOMEM;
+    return ret;
+  }
+
+  ret = sem_init(sem, untrusted_size);
+  // print_params(enclp);
+  // print_enclave(enclave);
+  /* prepare for mmap */
+  enclave->sem = sem;
+  enclp->sem_paddr = __pa(sem->ptr);
+  return ret;
+}
+
+int keystone_connect_enclave(unsigned long arg)
+{
+  struct sbiret ret;
+  struct keystone_ioctl_con_enclave *encls = (struct keystone_ioctl_con_enclave*) arg;
+  unsigned long ueid1 = encls->eid1;
+  unsigned long ueid2 = encls->eid2;
+  struct enclave* enclave1;
+  struct enclave* enclave2;
+
+  // keystone_err("keystone_connect_enclave");
+
+  // keystone_err("Recieved ueid1: %d, uedi2: %d", ueid1, ueid2);
+
+  enclave1 = get_enclave_by_id(ueid1);
+  enclave2 = get_enclave_by_id(ueid2);
+
+  // keystone_err("enclave1: user space eid: %d, kernel space eid: %d", ueid1, enclave1->eid);
+  // keystone_err("enclave2: user space eid: %d, kernel space eid: %d", ueid2, enclave2->eid);
+
+  if (!enclave1 || !enclave2)
+  {
+    keystone_err("invalid enclave id\n");
+    return -EINVAL;
+  }
+
+  // keystone_err("SBI_CALL_2");
+  ret = sbi_sm_connect_enclaves(enclave1->eid, enclave2->eid);
+
+  if (ret.error) {
+    keystone_err("keystone_connect_enclave: SBI call failed with error code %ld\n", ret.error);
+    return -EINVAL;
+  }
+  return 0;
+}
 
 int keystone_destroy_enclave(struct file *filep, unsigned long arg)
 {
@@ -258,6 +332,12 @@ long keystone_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
      * We didn't identified the exact problem, so we'll have these until we figure out */
     case KEYSTONE_IOC_UTM_INIT:
       ret = utm_init_ioctl(filep, (unsigned long) data);
+      break;
+    case KEYSTONE_IOC_SEM_INIT:
+      ret = sem_init_ioctl(filep, (unsigned long) data);
+      break;
+    case KEYSTONE_IOC_CON_ENCLAVES:
+      ret = keystone_connect_enclave((unsigned long) data);
       break;
     default:
       return -ENOSYS;

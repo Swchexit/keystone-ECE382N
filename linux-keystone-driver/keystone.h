@@ -50,6 +50,13 @@ struct utm {
   unsigned long order;
 };
 
+struct sem {
+  pte_t* root_page_table;
+  vaddr_t ptr;
+  size_t size;
+  unsigned long order;
+};
+
 
 struct enclave
 {
@@ -57,6 +64,7 @@ struct enclave
   int close_on_pexit;
   struct utm* utm;
   struct epm* epm;
+  struct sem* sem;
   bool is_init;
 };
 
@@ -88,6 +96,8 @@ int epm_destroy(struct epm* epm);
 int epm_init(struct epm* epm, unsigned int count);
 int utm_destroy(struct utm* utm);
 int utm_init(struct utm* utm, size_t untrusted_size);
+int sem_destroy(struct sem* sem);
+int sem_init(struct sem* sem, size_t sem_size);
 paddr_t epm_va_to_pa(struct epm* epm, vaddr_t addr);
 
 #define keystone_info(fmt, ...) \

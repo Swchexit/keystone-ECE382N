@@ -9,6 +9,8 @@
 #if __riscv_xlen == 64
 #define DEFAULT_FREEMEM_SIZE 1024 * 1024  // 1 MB
 #define DEFAULT_UNTRUSTED_PTR 0xffffffff80000000
+#define DEFAULT_SHARED_PTR      0xffffffffa0000000
+#define DEFAULT_SHARED_SIZE     8192 // 8 KB
 #define DEFAULT_STACK_SIZE 1024 * 16  // 16k
 #define DEFAULT_STACK_START 0x0000000040000000
 #elif __riscv_xlen == 32
@@ -32,16 +34,20 @@ class Params {
  public:
   Params() {
     untrusted_size = DEFAULT_UNTRUSTED_SIZE;
+    shared_size = DEFAULT_SHARED_SIZE;
     freemem_size   = DEFAULT_FREEMEM_SIZE;
   }
 
   void setUntrustedSize(uint64_t size) { untrusted_size = size; }
+  void setSharedSize(uint64_t size) { shared_size = size; }
   void setFreeMemSize(uint64_t size) { freemem_size = size; }
   uintptr_t getUntrustedSize() { return untrusted_size; }
+  uintptr_t getSharedSize() { return shared_size; }
   uintptr_t getFreeMemSize() { return freemem_size; }
 
  private:
   uint64_t untrusted_size;
+  uint64_t shared_size;
   uint64_t freemem_size;
 };
 

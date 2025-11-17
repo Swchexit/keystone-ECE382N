@@ -24,6 +24,14 @@ PhysicalEnclaveMemory::allocUtm(size_t size) {
   return ret;
 }
 
+uintptr_t
+PhysicalEnclaveMemory::allocSem(size_t size) {
+  uintptr_t ret = pDevice->initSEM(size);
+  semSize   = size;
+  semPhysAddr   = ret;
+  return ret;
+}
+
 // TODO: delete this 
 /* Only used to allocate memory for root page table */
 uintptr_t

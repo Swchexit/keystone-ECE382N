@@ -69,6 +69,21 @@ static inline void context_switch_to_enclave(struct sbi_trap_regs* regs,
     // $a7: utm size
     regs->a7 = (uintptr_t) enclaves[eid].params.untrusted_size;
 
+    // Hack for sem. Follows how composite enclave did it. But really unsure why.
+    // Calls to runtime/loader-binary/loader.S
+    // $t3: (PA) sem base
+    regs->t3 = (uintptr_t) enclaves[eid].params.shared_base;
+    // $t4: (PA) sem size
+    regs->t4 = (uintptr_t) enclaves[eid].params.shared_size;
+    // $t5: (VA) sem_vaddr
+    // Currently we map to default address in runtime
+    // regs->t5 = (uintptr_t) enclaves[eid].params.shared_entry;
+    // $s9: (PA) sem_connector_base
+    regs->s9 = (uintptr_t) enclaves[eid].connector[0].paddr;
+    // $s10: (PA) sem_connector_base
+    regs->s10 = (uintptr_t) enclaves[eid].connector[0].size;
+    // $s11: (PA) sem_connector_base
+    regs->s11 = (uintptr_t) enclaves[eid].connector[0].vaddr; // currently not used(dummy)
     // enclave will only have physical addresses in the first run
     csr_write(satp, 0);
   }
@@ -297,6 +312,9 @@ static int is_create_args_valid(struct keystone_sbi_create_t* args)
   if (args->utm_region.paddr >=
       args->utm_region.paddr + args->utm_region.size)
     return 0;
+  if (args->sem_region.paddr >=
+      args->sem_region.paddr + args->sem_region.size)
+    return 0;
 
   epm_start = args->epm_region.paddr;
   epm_end = args->epm_region.paddr + args->epm_region.size;
@@ -338,14 +356,18 @@ static int is_create_args_valid(struct keystone_sbi_create_t* args)
 unsigned long create_enclave(unsigned long *eidptr, struct keystone_sbi_create_t create_args)
 {
   /* EPM and UTM parameters */
+  // EPM: enclave private memory
+  // UTM: untrusted shared memory
   uintptr_t base = create_args.epm_region.paddr;
   size_t size = create_args.epm_region.size;
   uintptr_t utbase = create_args.utm_region.paddr;
   size_t utsize = create_args.utm_region.size;
+  uintptr_t sembase = create_args.sem_region.paddr;
+  size_t semsize = create_args.sem_region.size;
 
   enclave_id eid;
   unsigned long ret;
-  int region, shared_region;
+  int region, shared_region, sem_region;
 
   /* Runtime parameters */
   if(!is_create_args_valid(&create_args))
@@ -362,6 +384,9 @@ unsigned long create_enclave(unsigned long *eidptr, struct keystone_sbi_create_t
   params.untrusted_size = utsize;
   params.free_requested = create_args.free_requested;
 
+  params.shared_base = create_args.sem_region.paddr;
+  params.shared_size = create_args.sem_region.size;
+
 
   // allocate eid
   ret = SBI_ERR_SM_ENCLAVE_NO_FREE_RESOURCE;
@@ -377,12 +402,17 @@ unsigned long create_enclave(unsigned long *eidptr, struct keystone_sbi_create_t
   if(pmp_region_init_atomic(utbase, utsize, PMP_PRI_BOTTOM, &shared_region, 0))
     goto free_region;
 
+  // create a PMP region for shared enclave memory
+  if(pmp_region_init_atomic(sembase, semsize, PMP_PRI_ANY, &sem_region, 0))
+    goto free_shared_region;
+
   // set pmp registers for private region (not shared)
   if(pmp_set_global(region, PMP_NO_PERM))
     goto free_shared_region;
 
   // cleanup some memory regions for sanity See issue #38
   clean_enclave_memory(utbase, utsize);
+  clean_enclave_memory(sembase, semsize);
 
 
   // initialize enclave metadata
@@ -392,6 +422,15 @@ unsigned long create_enclave(unsigned long *eidptr, struct keystone_sbi_create_t
   enclaves[eid].regions[0].type = REGION_EPM;
   enclaves[eid].regions[1].pmp_rid = shared_region;
   enclaves[eid].regions[1].type = REGION_UTM;
+  enclaves[eid].regions[2].pmp_rid = sem_region;
+  enclaves[eid].regions[2].type = REGION_SEM;
+
+  // mark regions as not shared(for now. they're shared after initialized/connected)
+  enclaves[eid].regions_shared[0] = 0;
+  enclaves[eid].regions_shared[1] = 0;
+  enclaves[eid].regions_shared[2] = 0;
+
+  enclaves[eid].connector[0].valid = FALSE;
 #if __riscv_xlen == 32
   enclaves[eid].encl_satp = ((base >> RISCV_PGSHIFT) | (SATP_MODE_SV32 << HGATP_MODE_SHIFT));
 #else
@@ -474,7 +513,8 @@ unsigned long destroy_enclave(enclave_id eid)
   region_id rid;
   for(i = 0; i < ENCLAVE_REGIONS_MAX; i++){
     if(enclaves[eid].regions[i].type == REGION_INVALID ||
-       enclaves[eid].regions[i].type == REGION_UTM)
+       enclaves[eid].regions[i].type == REGION_UTM ||
+       enclaves[eid].regions[i].type == REGION_CON)
       continue;
     //1.a Clear all pages
     rid = enclaves[eid].regions[i].pmp_rid;
@@ -498,6 +538,8 @@ unsigned long destroy_enclave(enclave_id eid)
   for(i=0; i < ENCLAVE_REGIONS_MAX; i++){
     enclaves[eid].regions[i].type = REGION_INVALID;
   }
+
+  // NOTE: Connected pages are not freed here. They should live until all connected enclaves are destroyed.
 
   // 3. release eid
   encl_free_eid(eid);
@@ -677,6 +719,147 @@ unsigned long get_sealing_key(uintptr_t sealing_key, uintptr_t key_ident,
   /* sign derived key */
   sm_sign((void *)key_struct->signature, (void *)key_struct->key,
           SEALING_KEY_SIZE);
+
+  return SBI_ERR_SM_ENCLAVE_SUCCESS;
+}
+
+/* Connect the shared memory of two enclaves
+ * Use the already allocated shared memory of enclave1 and map it 
+ * into enclave 2
+ * 
+ * Note: this only works with rather static enclave configurations
+ * SEM must be at enclaves[eid1].regions[2]
+ * enclaves[eid2].connector[0] must be invalid
+ */
+unsigned long connect_enclaves(enclave_id eid1, enclave_id eid2)
+{
+  spinlock_lock(&encl_lock);
+
+  if(!ENCLAVE_EXISTS(eid1) || !ENCLAVE_EXISTS(eid2)) {
+    printm("invalid id\r\n");
+    spinlock_unlock(&encl_lock);
+    return SBI_ERR_SM_ENCLAVE_INVALID_ID;
+  }
+
+  if(enclaves[eid1].regions[2].type != REGION_SEM) {
+    printm("region sem\r\n");
+    spinlock_unlock(&encl_lock);
+    return SBI_ERR_SM_ENCLAVE_UNKNOWN_ERROR;
+  }
+  if(enclaves[eid2].connector[0].valid == TRUE) {
+    printm("not valid, connected before\r\n");
+    spinlock_unlock(&encl_lock);
+    return SBI_ERR_SM_ENCLAVE_UNKNOWN_ERROR;
+  }
+  if(enclaves[eid1].regions_shared[2] > 0) {
+    printm("multiple shares\r\n");
+    spinlock_unlock(&encl_lock);
+    return SBI_ERR_SM_ENCLAVE_UNKNOWN_ERROR;
+  }
+
+  enclaves[eid2].connector[0].paddr = enclaves[eid1].params.sem_base;
+  enclaves[eid2].connector[0].size = enclaves[eid1].params.sem_size;
+  // enclaves[eid2].connector[0].vaddr = enclaves[eid1].params.shared_entry;
+  enclaves[eid2].connector[0].vaddr = 0x878769420;  // FIXME: dummy vaddr for now, not used
+  enclaves[eid2].connector[0].valid = TRUE;
+  enclaves[eid2].regions[3] = enclaves[eid1].regions[2];
+  enclaves[eid2].regions[3].type = REGION_CON;
+  enclaves[eid1].regions_shared[2]++;
+
+  // TODO: call enclave notify
+  // TODO: disable interrupts
+  spinlock_unlock(&encl_lock);
+
+  printm("successfully connected enclaves\r\n");
+  return SBI_ERR_SM_ENCLAVE_SUCCESS;
+}
+
+/* Disconnect the shared memory of two enclaves
+ * Use the already allocated shared memory of enclave1 and map it 
+ * into enclave 2
+ * 
+ * Note: this only works with rather static enclave configurations
+ * SEM must be at enclaves[eid1].regions[2]
+ * enclaves[eid2].connector[0] must be invalid
+ */
+unsigned long disconnect_enclaves(enclave_id eid1, enclave_id eid2)
+{
+  spinlock_lock(&encl_lock);
+
+  if(!ENCLAVE_EXISTS(eid1) || !ENCLAVE_EXISTS(eid2)) {
+    spinlock_unlock(&encl_lock);
+    return SBI_ERR_SM_ENCLAVE_INVALID_ID;
+  }
+
+  if(enclaves[eid1].regions[2].type != REGION_SEM) {
+    spinlock_unlock(&encl_lock);
+    return SBI_ERR_SM_ENCLAVE_UNKNOWN_ERROR;
+  }
+  if(enclaves[eid2].connector[0].valid == FALSE) {
+    spinlock_unlock(&encl_lock);
+    return SBI_ERR_SM_ENCLAVE_UNKNOWN_ERROR;
+  }
+  if(enclaves[eid1].regions_shared[2] == 0) {
+    spinlock_unlock(&encl_lock);
+    return SBI_ERR_SM_ENCLAVE_UNKNOWN_ERROR;
+  }
+  if(enclaves[eid1].state == RUNNING || enclaves[eid1].state == STOPPED) {
+    spinlock_unlock(&encl_lock);
+    return SBI_ERR_SM_ENCLAVE_UNKNOWN_ERROR;
+  }
+
+  enclaves[eid2].connector[0].paddr = 0;
+  enclaves[eid2].connector[0].size = 0;
+  enclaves[eid2].connector[0].vaddr = 0;
+  enclaves[eid2].connector[0].valid = FALSE;
+
+  enclaves[eid1].regions_shared[2]--;
+
+  spinlock_unlock(&encl_lock);
+
+  // TODO: call enclave handler
+  return SBI_ERR_SM_ENCLAVE_SUCCESS;
+}
+
+/* Perform async disconnect
+ * Move the shared memory to ownership of the 
+ * 
+ * Note: this only works with rather static enclave configurations
+ * SEM must be at enclaves[eid1].regions[2]
+ * enclaves[eid2].connector[0] must be invalid
+ */
+unsigned long async_disconnect_enclaves(enclave_id eid1, enclave_id eid2)
+{
+  spinlock_lock(&encl_lock);
+
+  if(!ENCLAVE_EXISTS(eid1) || !ENCLAVE_EXISTS(eid2)) {
+    spinlock_unlock(&encl_lock);
+    return SBI_ERR_SM_ENCLAVE_INVALID_ID;
+  }
+
+  if(enclaves[eid1].regions[2].type != REGION_SEM) {
+    spinlock_unlock(&encl_lock);
+    return SBI_ERR_SM_ENCLAVE_UNKNOWN_ERROR;
+  }
+  if(enclaves[eid2].connector[0].valid == FALSE) {
+    spinlock_unlock(&encl_lock);
+    return SBI_ERR_SM_ENCLAVE_UNKNOWN_ERROR;
+  }
+  if(enclaves[eid1].regions_shared[2] == 0) {
+    spinlock_unlock(&encl_lock);
+    return SBI_ERR_SM_ENCLAVE_UNKNOWN_ERROR;
+  }
+
+  enclaves[eid2].connector[0].paddr = 0;
+  enclaves[eid2].connector[0].size = 0;
+  enclaves[eid2].connector[0].vaddr = 0;
+  enclaves[eid2].connector[0].valid = FALSE;
+
+  enclaves[eid1].regions_shared[2]--;
+
+  spinlock_unlock(&encl_lock);
+
+  // TODO: move ownership to the other enclave
 
   return SBI_ERR_SM_ENCLAVE_SUCCESS;
 }

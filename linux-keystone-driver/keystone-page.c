@@ -117,3 +117,41 @@ int utm_init(struct utm* utm, size_t untrusted_size)
 
   return 0;
 }
+
+/* Destroy all memory associated with an SEM */
+int sem_destroy(struct sem* sem) {
+
+  if(sem->ptr){
+    free_pages((vaddr_t)sem->ptr, sem->order);
+  }
+
+  return 0;
+}
+
+/* Create an shared enclave buffer */
+int sem_init(struct sem* sem, size_t size)
+{
+  unsigned long req_pages = 0;
+  unsigned long order = 0;
+  unsigned long count;
+  req_pages += PAGE_UP(size)/PAGE_SIZE;
+  order = ilog2(req_pages - 1) + 1;
+  count = 0x1 << order;
+
+  sem->order = order;
+
+  /* Currently, SEM does not utilize CMA.
+   * It is always allocated from the buddy allocator */
+  sem->ptr = (uintptr_t) __get_free_pages(GFP_HIGHUSER, order);
+  if (!sem->ptr) {
+    return -ENOMEM;
+  }
+
+  sem->size = count * PAGE_SIZE;
+  if (sem->size != size) {
+    /* Instead of failing, we just warn that the user has to fix the parameter. */
+    keystone_warn("shared buffer size is not multiple of PAGE_SIZE\n");
+  }
+
+  return 0;
+}

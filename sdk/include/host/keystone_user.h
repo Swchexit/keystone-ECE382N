@@ -26,6 +26,10 @@
   _IOR(KEYSTONE_IOC_MAGIC, 0x06, struct keystone_ioctl_create_enclave)
 #define KEYSTONE_IOC_UTM_INIT \
   _IOR(KEYSTONE_IOC_MAGIC, 0x07, struct keystone_ioctl_create_enclave)
+#define KEYSTONE_IOC_SEM_INIT \
+  _IOR(KEYSTONE_IOC_MAGIC, 0x08, struct keystone_ioctl_create_enclave)
+#define KEYSTONE_IOC_CON_ENCLAVES \
+  _IOR(KEYSTONE_IOC_MAGIC, 0x09, struct keystone_ioctl_con_enclave)
 
 #define RT_NOEXEC 0
 #define USER_NOEXEC 1
@@ -33,12 +37,16 @@
 #define USER_FULL 3
 #define UTM_FULL 4
 
+#define MDSIZE 64
+
+// NOTE: always sync this with sdk/include/shared/keystone_user.h
 struct keystone_ioctl_create_enclave {
   uintptr_t eid;
 
   // host -> driver
   uintptr_t min_pages; // create
   uintptr_t utm_size; // utm_init
+  uintptr_t sem_size; // sem_init
 
   // host -> driver // finalize
   uintptr_t runtime_paddr;
@@ -50,12 +58,19 @@ struct keystone_ioctl_create_enclave {
   uintptr_t epm_paddr;
   uintptr_t epm_size;
   uintptr_t utm_paddr;
+  uintptr_t sem_paddr;
 };
 
 struct keystone_ioctl_run_enclave {
   uintptr_t eid;
   uintptr_t error;
   uintptr_t value;
+};
+
+// Not sure why all structs use uintptr_t for everything
+struct keystone_ioctl_con_enclave {
+  uintptr_t eid1;
+  uintptr_t eid2;
 };
 
 #endif

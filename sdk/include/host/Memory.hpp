@@ -30,6 +30,7 @@ class Memory {
   virtual void writeMem(uintptr_t src, uintptr_t dst, size_t size) = 0;
   virtual uintptr_t allocMem(size_t size)                          = 0;
   virtual uintptr_t allocUtm(size_t size)                          = 0;
+  virtual uintptr_t allocSem(size_t size)                          = 0;
   size_t epmAllocVspace(uintptr_t addr, size_t num_pages);
   uintptr_t allocPages(size_t size); 
 
@@ -62,6 +63,8 @@ class Memory {
   uintptr_t utmPhysAddr;
   uintptr_t untrustedPtr;
   uintptr_t untrustedSize;
+  uintptr_t semPhysAddr;
+  uintptr_t semSize;
 };
 
 class PhysicalEnclaveMemory : public Memory {
@@ -73,6 +76,7 @@ class PhysicalEnclaveMemory : public Memory {
   void writeMem(uintptr_t src, uintptr_t dst, size_t size);
   uintptr_t allocMem(size_t size);
   uintptr_t allocUtm(size_t size);
+  uintptr_t allocSem(size_t size);
 };
 
 // Simulated memory reads/writes from calloc'ed memory

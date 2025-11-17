@@ -177,6 +177,11 @@ Enclave::init(
     destroy();
     return Error::DeviceError;
   }
+  if (!pMemory->allocSem(params.getSharedSize())) {
+    ERROR("failed to init enclave shared memory - ioctl() failed");
+    destroy();
+    return Error::DeviceError;
+  }
 	
   /* Copy loader into beginning of enclave memory */
   copyFile((uintptr_t) loaderFile->getPtr(), loaderFile->getFileSize());

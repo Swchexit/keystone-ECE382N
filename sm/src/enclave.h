@@ -18,6 +18,7 @@
 #include TARGET_PLATFORM_HEADER
 
 #define ATTEST_DATA_MAXLEN  1024
+#define ENCLAVE_SHARED_MAX 1
 /* TODO: does not support multithreaded enclave yet */
 #define MAX_ENCL_THREADS 1
 
@@ -43,6 +44,8 @@ enum enclave_region_type{
   REGION_INVALID,
   REGION_EPM,
   REGION_UTM,
+  REGION_SEM, // initially it's SEM
+  REGION_CON, // after connect, it's CON
   REGION_OTHER,
 };
 
@@ -50,6 +53,20 @@ struct enclave_region
 {
   region_id pmp_rid;
   enum enclave_region_type type;
+};
+
+enum valid
+{
+  FALSE, TRUE
+};
+
+struct shared_mem_connector
+{
+  uintptr_t paddr;
+  uintptr_t size;
+  uintptr_t vaddr;
+  enclave_id eid; // the connected enclave
+  enum valid valid;
 };
 
 /* enclave metadata */
@@ -62,10 +79,14 @@ struct enclave
 
   /* Physical memory regions associate with this enclave */
   struct enclave_region regions[ENCLAVE_REGIONS_MAX];
+  int regions_shared[ENCLAVE_REGIONS_MAX];
+
+  /* Shared enclave memory connectors */
+  struct shared_mem_connector connector[ENCLAVE_SHARED_MAX];
 
   /* measurement */
   byte hash[MDSIZE];
-  byte sign[SIGNATURE_SIZE];
+  byte sign[SIGNATURE_SIZE];  // Comment out to not do the signing/verification
 
   /* parameters */
   struct runtime_params_t params;
@@ -112,6 +133,10 @@ unsigned long create_enclave(unsigned long *eid, struct keystone_sbi_create_t cr
 unsigned long destroy_enclave(enclave_id eid);
 unsigned long run_enclave(struct sbi_trap_regs *regs, enclave_id eid);
 unsigned long resume_enclave(struct sbi_trap_regs *regs, enclave_id eid);
+unsigned long connect_enclaves(enclave_id eid1, enclave_id eid2);
+// FIXME: function prototypes should match expected from kernel driver
+unsigned long disconnect_enclaves(enclave_id eid1, enclave_id eid2);
+unsigned long async_disconnect_enclaves(enclave_id eid1, enclave_id eid2);
 // callables from the enclave
 unsigned long exit_enclave(struct sbi_trap_regs *regs, enclave_id eid);
 unsigned long stop_enclave(struct sbi_trap_regs *regs, uint64_t request, enclave_id eid);

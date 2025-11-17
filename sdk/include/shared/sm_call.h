@@ -27,6 +27,9 @@
 
 /* 4000-4999 are experimental */
 #define SBI_SM_CALL_PLUGIN        4000
+#define SBI_SM_CON_ENCLAVES       4001
+#define SBI_SM_SYNC_DISCON_ENCLAVES 4002
+#define SBI_SM_ASYNC_DISCON_ENCLAVES 4003
 #define FID_RANGE_CUSTOM          4999
 
 /* Plugin IDs and Call IDs */
@@ -48,6 +51,8 @@ struct runtime_params_t {
   uintptr_t free_base;
   uintptr_t untrusted_base;
   uintptr_t untrusted_size;
+  uintptr_t shared_base;
+  uintptr_t shared_size;
   uintptr_t free_requested; // for attestation
 };
 
@@ -59,6 +64,7 @@ struct keystone_sbi_pregion_t {
 struct keystone_sbi_create_t {
   struct keystone_sbi_pregion_t epm_region;
   struct keystone_sbi_pregion_t utm_region;
+  struct keystone_sbi_pregion_t sem_region;
 
   uintptr_t runtime_paddr;
   uintptr_t user_paddr;

@@ -38,6 +38,19 @@ KeystoneDevice::initUTM(size_t size) {
   return encl.utm_paddr;
 }
 
+uintptr_t
+KeystoneDevice::initSEM(size_t size) {
+  struct keystone_ioctl_create_enclave encl;
+  encl.eid      = eid;
+  encl.sem_size = size;
+  if (ioctl(fd, KEYSTONE_IOC_SEM_INIT, &encl)) {
+    return 0;
+  }
+
+  return encl.sem_paddr;
+}
+
+
 Error
 KeystoneDevice::finalize(
     uintptr_t runtimePhysAddr, uintptr_t eappPhysAddr, uintptr_t freePhysAddr,
@@ -150,6 +163,11 @@ MockKeystoneDevice::create(uint64_t minPages) {
 
 uintptr_t
 MockKeystoneDevice::initUTM(size_t size) {
+  return 0;
+}
+
+uintptr_t
+MockKeystoneDevice::initSEM(size_t size) {
   return 0;
 }
 
