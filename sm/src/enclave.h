@@ -55,10 +55,10 @@ struct enclave_region
   enum enclave_region_type type;
 };
 
-enum valid
-{
-  FALSE, TRUE
-};
+// enum valid
+// {
+//   FALSE, TRUE
+// };
 
 struct shared_mem_connector
 {
@@ -66,7 +66,7 @@ struct shared_mem_connector
   uintptr_t size;
   uintptr_t vaddr;
   enclave_id eid; // the connected enclave
-  enum valid valid;
+  bool valid;
 };
 
 /* enclave metadata */

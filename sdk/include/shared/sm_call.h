@@ -51,8 +51,8 @@ struct runtime_params_t {
   uintptr_t free_base;
   uintptr_t untrusted_base;
   uintptr_t untrusted_size;
-  uintptr_t shared_base;
-  uintptr_t shared_size;
+  uintptr_t sem_base;
+  uintptr_t sem_size;
   uintptr_t free_requested; // for attestation
 };
 

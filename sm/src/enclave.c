@@ -72,9 +72,9 @@ static inline void context_switch_to_enclave(struct sbi_trap_regs* regs,
     // Hack for sem. Follows how composite enclave did it. But really unsure why.
     // Calls to runtime/loader-binary/loader.S
     // $t3: (PA) sem base
-    regs->t3 = (uintptr_t) enclaves[eid].params.shared_base;
+    regs->t3 = (uintptr_t) enclaves[eid].params.sem_base;
     // $t4: (PA) sem size
-    regs->t4 = (uintptr_t) enclaves[eid].params.shared_size;
+    regs->t4 = (uintptr_t) enclaves[eid].params.sem_size;
     // $t5: (VA) sem_vaddr
     // Currently we map to default address in runtime
     // regs->t5 = (uintptr_t) enclaves[eid].params.shared_entry;
@@ -384,8 +384,8 @@ unsigned long create_enclave(unsigned long *eidptr, struct keystone_sbi_create_t
   params.untrusted_size = utsize;
   params.free_requested = create_args.free_requested;
 
-  params.shared_base = create_args.sem_region.paddr;
-  params.shared_size = create_args.sem_region.size;
+  params.sem_base = create_args.sem_region.paddr;
+  params.sem_size = create_args.sem_region.size;
 
 
   // allocate eid
@@ -733,27 +733,27 @@ unsigned long get_sealing_key(uintptr_t sealing_key, uintptr_t key_ident,
  */
 unsigned long connect_enclaves(enclave_id eid1, enclave_id eid2)
 {
-  spinlock_lock(&encl_lock);
+  spin_lock(&encl_lock);
 
   if(!ENCLAVE_EXISTS(eid1) || !ENCLAVE_EXISTS(eid2)) {
-    printm("invalid id\r\n");
-    spinlock_unlock(&encl_lock);
+    // printm("invalid id\r\n");
+    spin_unlock(&encl_lock);
     return SBI_ERR_SM_ENCLAVE_INVALID_ID;
   }
 
   if(enclaves[eid1].regions[2].type != REGION_SEM) {
-    printm("region sem\r\n");
-    spinlock_unlock(&encl_lock);
+    // printm("region sem\r\n");
+    spin_unlock(&encl_lock);
     return SBI_ERR_SM_ENCLAVE_UNKNOWN_ERROR;
   }
-  if(enclaves[eid2].connector[0].valid == TRUE) {
-    printm("not valid, connected before\r\n");
-    spinlock_unlock(&encl_lock);
+  if(enclaves[eid2].connector[0].valid) {
+    // printm("not valid, connected before\r\n");
+    spin_unlock(&encl_lock);
     return SBI_ERR_SM_ENCLAVE_UNKNOWN_ERROR;
   }
   if(enclaves[eid1].regions_shared[2] > 0) {
-    printm("multiple shares\r\n");
-    spinlock_unlock(&encl_lock);
+    // printm("multiple shares\r\n");
+    spin_unlock(&encl_lock);
     return SBI_ERR_SM_ENCLAVE_UNKNOWN_ERROR;
   }
 
@@ -768,9 +768,9 @@ unsigned long connect_enclaves(enclave_id eid1, enclave_id eid2)
 
   // TODO: call enclave notify
   // TODO: disable interrupts
-  spinlock_unlock(&encl_lock);
+  spin_unlock(&encl_lock);
 
-  printm("successfully connected enclaves\r\n");
+  // printm("successfully connected enclaves\r\n");
   return SBI_ERR_SM_ENCLAVE_SUCCESS;
 }
 
@@ -784,27 +784,27 @@ unsigned long connect_enclaves(enclave_id eid1, enclave_id eid2)
  */
 unsigned long disconnect_enclaves(enclave_id eid1, enclave_id eid2)
 {
-  spinlock_lock(&encl_lock);
+  spin_lock(&encl_lock);
 
   if(!ENCLAVE_EXISTS(eid1) || !ENCLAVE_EXISTS(eid2)) {
-    spinlock_unlock(&encl_lock);
+    spin_unlock(&encl_lock);
     return SBI_ERR_SM_ENCLAVE_INVALID_ID;
   }
 
   if(enclaves[eid1].regions[2].type != REGION_SEM) {
-    spinlock_unlock(&encl_lock);
+    spin_unlock(&encl_lock);
     return SBI_ERR_SM_ENCLAVE_UNKNOWN_ERROR;
   }
-  if(enclaves[eid2].connector[0].valid == FALSE) {
-    spinlock_unlock(&encl_lock);
+  if(!enclaves[eid2].connector[0].valid) {
+    spin_unlock(&encl_lock);
     return SBI_ERR_SM_ENCLAVE_UNKNOWN_ERROR;
   }
   if(enclaves[eid1].regions_shared[2] == 0) {
-    spinlock_unlock(&encl_lock);
+    spin_unlock(&encl_lock);
     return SBI_ERR_SM_ENCLAVE_UNKNOWN_ERROR;
   }
   if(enclaves[eid1].state == RUNNING || enclaves[eid1].state == STOPPED) {
-    spinlock_unlock(&encl_lock);
+    spin_unlock(&encl_lock);
     return SBI_ERR_SM_ENCLAVE_UNKNOWN_ERROR;
   }
 
@@ -815,7 +815,7 @@ unsigned long disconnect_enclaves(enclave_id eid1, enclave_id eid2)
 
   enclaves[eid1].regions_shared[2]--;
 
-  spinlock_unlock(&encl_lock);
+  spin_unlock(&encl_lock);
 
   // TODO: call enclave handler
   return SBI_ERR_SM_ENCLAVE_SUCCESS;
@@ -830,23 +830,23 @@ unsigned long disconnect_enclaves(enclave_id eid1, enclave_id eid2)
  */
 unsigned long async_disconnect_enclaves(enclave_id eid1, enclave_id eid2)
 {
-  spinlock_lock(&encl_lock);
+  spin_lock(&encl_lock);
 
   if(!ENCLAVE_EXISTS(eid1) || !ENCLAVE_EXISTS(eid2)) {
-    spinlock_unlock(&encl_lock);
+    spin_unlock(&encl_lock);
     return SBI_ERR_SM_ENCLAVE_INVALID_ID;
   }
 
   if(enclaves[eid1].regions[2].type != REGION_SEM) {
-    spinlock_unlock(&encl_lock);
+    spin_unlock(&encl_lock);
     return SBI_ERR_SM_ENCLAVE_UNKNOWN_ERROR;
   }
-  if(enclaves[eid2].connector[0].valid == FALSE) {
-    spinlock_unlock(&encl_lock);
+  if(!enclaves[eid2].connector[0].valid) {
+    spin_unlock(&encl_lock);
     return SBI_ERR_SM_ENCLAVE_UNKNOWN_ERROR;
   }
   if(enclaves[eid1].regions_shared[2] == 0) {
-    spinlock_unlock(&encl_lock);
+    spin_unlock(&encl_lock);
     return SBI_ERR_SM_ENCLAVE_UNKNOWN_ERROR;
   }
 
@@ -857,7 +857,7 @@ unsigned long async_disconnect_enclaves(enclave_id eid1, enclave_id eid2)
 
   enclaves[eid1].regions_shared[2]--;
 
-  spinlock_unlock(&encl_lock);
+  spin_unlock(&encl_lock);
 
   // TODO: move ownership to the other enclave
 

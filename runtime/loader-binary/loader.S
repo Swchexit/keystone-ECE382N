@@ -18,7 +18,7 @@ _start:
   // t5: sem_vaddr (VA), currently not passed
   // s9: sem_connector_base (PA)
   // s10: sem_connector_size (bytes)
-  // s11: sem_connector_vaddr (VA), currently not used
+  // s11: sem_connector_vaddr (VA), currently not passed
 
   // use designated stack
   la sp, _estack
@@ -33,8 +33,21 @@ _start:
   STORE a6, 5*REGBYTES(sp)
   STORE a7, 6*REGBYTES(sp)
 
+  // prepare arguments for load_runtime
+  // most arguments are already in a1-a7 (a0 is dummy)
+  // so we only push excessive args onto the stack
+  addi    sp, sp, -(4*REGBYTES)
+  STORE   t3,  0*REGBYTES(sp)   // arg 9:  sem_base
+  STORE   t4,  1*REGBYTES(sp)   // arg 10: sem_size
+  STORE   s9, 2*REGBYTES(sp)   // arg 11: sem_connector_base
+  STORE   s10, 3*REGBYTES(sp)   // arg 12: sem_connector_size
+
+
   // call load_runtime
   call load_runtime 
+
+  // Clean up outgoing-arg space if you want to continue using this stack
+  addi    sp, sp, (4*REGBYTES)
 
   // exit if errors
   bne a0, zero, exit
