@@ -53,4 +53,6 @@ get_sealing_key(
     struct sealing_key* sealing_key_struct, size_t sealing_key_struct_size,
     void* key_ident, size_t key_ident_size);
 
+int connect_enclaves(unsigned int eid_other);
+
 #endif /* syscall.h */

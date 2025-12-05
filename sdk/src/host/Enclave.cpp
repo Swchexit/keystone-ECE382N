@@ -177,7 +177,7 @@ Enclave::init(
     destroy();
     return Error::DeviceError;
   }
-  if (!pMemory->allocSem(params.getSharedSize())) {
+  if (params.getConnectSize() && !pMemory->allocSem(params.getConnectSize())) {
     ERROR("failed to init enclave shared memory - ioctl() failed");
     destroy();
     return Error::DeviceError;
@@ -276,6 +276,11 @@ Error
 Enclave::registerOcallDispatch(OcallFunc func) {
   oFuncDispatch = func;
   return Error::Success;
+}
+
+Error
+Enclave::connect(int otherEid) {
+  return pDevice->connectEnclaves(otherEid);
 }
 
 }  // namespace Keystone

@@ -40,6 +40,8 @@ KeystoneDevice::initUTM(size_t size) {
 
 uintptr_t
 KeystoneDevice::initSEM(size_t size) {
+  if (!size)
+    return 0;
   struct keystone_ioctl_create_enclave encl;
   encl.eid      = eid;
   encl.sem_size = size;
@@ -48,6 +50,22 @@ KeystoneDevice::initSEM(size_t size) {
   }
 
   return encl.sem_paddr;
+}
+
+Error
+KeystoneDevice::connectEnclaves(int eid) {
+  struct keystone_ioctl_con_enclave encl;
+  int ret;
+  encl.eid1      = this->eid;
+  encl.eid2 = eid;
+
+  ret = ioctl(fd, KEYSTONE_IOC_CON_ENCLAVES, &encl);
+  if (ret) {
+    perror("ioctl error: failed to connect enclaves");
+    return Error::IoctlErrorConnect;
+  }
+
+  return Error::Success;
 }
 
 
@@ -169,6 +187,11 @@ MockKeystoneDevice::initUTM(size_t size) {
 uintptr_t
 MockKeystoneDevice::initSEM(size_t size) {
   return 0;
+}
+
+Error
+MockKeystoneDevice::connectEnclaves(int eid) {
+  return Error::Success;
 }
 
 Error

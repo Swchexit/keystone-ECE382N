@@ -35,6 +35,7 @@ int destroy_enclave(struct enclave* enclave)
     utm_destroy(utm);
     kfree(utm);
   }
+  // This SHOULD take ownership into account
   if (sem)
   {
     sem_destroy(sem);

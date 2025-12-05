@@ -26,6 +26,8 @@ PhysicalEnclaveMemory::allocUtm(size_t size) {
 
 uintptr_t
 PhysicalEnclaveMemory::allocSem(size_t size) {
+  if(!size)
+    return 0;
   uintptr_t ret = pDevice->initSEM(size);
   semSize   = size;
   semPhysAddr   = ret;

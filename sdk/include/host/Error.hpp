@@ -15,6 +15,7 @@ enum class Error {
   IoctlErrorCreate,
   IoctlErrorDestroy,
   IoctlErrorFinalize,
+  IoctlErrorConnect,
   IoctlErrorRun,
   IoctlErrorResume,
   IoctlErrorUTMInit,

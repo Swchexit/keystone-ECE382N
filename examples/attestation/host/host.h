@@ -20,7 +20,8 @@ class SharedBuffer {
        * buffer. This will have to change to allow nested calls. */
       : edge_call_((struct edge_call*)buffer),
         buffer_((uintptr_t)buffer),
-        buffer_len_(buffer_len) {}
+        buffer_len_(buffer_len),
+        mailbox_((uintptr_t)buffer + 0x1000) {} // just use the magic number until I figure out where is safe
 
   uintptr_t ptr() { return buffer_; }
   size_t size() { return buffer_len_; }
@@ -32,6 +33,7 @@ class SharedBuffer {
   void set_ok();
   void setup_ret_or_bad_ptr(unsigned long ret_val);
   void setup_wrapped_ret_or_bad_ptr(const std::string& ret_val);
+  void send_connect_request(unsigned int eid);
 
  private:
   uintptr_t data_ptr();
@@ -50,6 +52,7 @@ class SharedBuffer {
   struct edge_call* const edge_call_;
   uintptr_t const buffer_;
   size_t const buffer_len_;
+  uintptr_t const mailbox_;
 };
 
 // The Host class mimicks a host interacting with the local enclave

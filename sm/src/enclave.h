@@ -86,7 +86,9 @@ struct enclave
 
   /* measurement */
   byte hash[MDSIZE];
+  byte hash_history[MDSIZE];  // This is the record of all connection histories, chained into a single hash
   byte sign[SIGNATURE_SIZE];  // Comment out to not do the signing/verification
+  // sha3_ctx_t hash_ctx;  // incremental hash context
 
   /* parameters */
   struct runtime_params_t params;

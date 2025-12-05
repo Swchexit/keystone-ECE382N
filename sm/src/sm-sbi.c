@@ -112,6 +112,16 @@ unsigned long sbi_sm_connect_enclaves(unsigned long eid1, unsigned long eid2)
   return ret;
 }
 
+unsigned long sbi_sm_connect_enclaves_eapp(unsigned long eid2)
+{
+  unsigned long ret;
+
+  unsigned long eid1 = (unsigned long) cpu_get_enclave_id();
+
+  ret = connect_enclaves((unsigned int) eid1, (unsigned int) eid2);
+  return ret;
+}
+
 unsigned long sbi_sm_sync_disconnect_enclaves(unsigned long eid1, unsigned long eid2)
 {
   unsigned long ret;

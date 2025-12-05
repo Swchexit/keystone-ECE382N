@@ -143,6 +143,9 @@ int sem_init(struct sem* sem, size_t size)
   /* Currently, SEM does not utilize CMA.
    * It is always allocated from the buddy allocator */
   sem->ptr = (uintptr_t) __get_free_pages(GFP_HIGHUSER, order);
+  // Hack: we memset this page to zero to avoid random data in the shared memory
+  memset((void*)sem->ptr, 0, count << PAGE_SHIFT);
+  keystone_info("sem_init: allocated sem ptr at 0x%lx, pa=0x%lx", sem->ptr, __pa((void*)sem->ptr));
   if (!sem->ptr) {
     return -ENOMEM;
   }

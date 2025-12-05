@@ -33,3 +33,8 @@ get_sealing_key(
       sealing_key_struct, sealing_key_struct_size,
       key_ident, key_ident_size);
 }
+
+int
+connect_enclaves(unsigned int eid_other) {
+  return SYSCALL_1(RUNTIME_SYSCALL_CONNECT_ENCLAVES, eid_other);
+}

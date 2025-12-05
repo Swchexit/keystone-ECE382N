@@ -70,7 +70,9 @@ int keystone_finalize_enclave(unsigned long arg)
   if (enclave->sem) {
     create_args.sem_region.paddr = __pa(enclave->sem->ptr);
     create_args.sem_region.size = enclave->sem->size;
+    keystone_info("Keystone finalizing enclave with SEM at va: 0x%lx pa: 0x%lx\n", enclave->sem->ptr,create_args.sem_region.paddr);
   } else {
+    keystone_info("Keystone finalizing enclave without SEM\n");
     create_args.sem_region.paddr = 0;
     create_args.sem_region.size = 0;
   }

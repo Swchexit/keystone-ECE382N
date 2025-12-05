@@ -175,9 +175,9 @@ void handle_syscall(struct encl_ctx* ctx)
     ret = handle_copy_from_shared((void*)arg0, arg1, arg2);
     break;
   case(RUNTIME_SYSCALL_ATTEST_ENCLAVE):;
-    copy_from_user((void*)rt_copy_buffer_2, (void*)arg1, arg2);
+    copy_from_user((void*)rt_copy_buffer_2, (void*)arg1, arg2); // nonce in rt_copy_buffer_2
 
-    ret = sbi_attest_enclave(rt_copy_buffer_1, rt_copy_buffer_2, arg2);
+    ret = sbi_attest_enclave(rt_copy_buffer_1, rt_copy_buffer_2, arg2); // result in rt_copy_buffer_1, nonce in rt_copy_buffer_2, size of nonce in arg2
 
     /* TODO we consistently don't have report size when we need it */
     copy_to_user((void*)arg0, (void*)rt_copy_buffer_1, 2048);
@@ -208,7 +208,9 @@ void handle_syscall(struct encl_ctx* ctx)
     memset(rt_copy_buffer_1, 0x00, sizeof(rt_copy_buffer_1));
 
     break;
-
+  case(RUNTIME_SYSCALL_CONNECT_ENCLAVES):
+    ret = sbi_connect_enclaves_eapp(arg0);
+    break;
 
 #ifdef USE_LINUX_SYSCALL
   case(SYS_clock_gettime):

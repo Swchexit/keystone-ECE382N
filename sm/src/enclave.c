@@ -312,7 +312,8 @@ static int is_create_args_valid(struct keystone_sbi_create_t* args)
   if (args->utm_region.paddr >=
       args->utm_region.paddr + args->utm_region.size)
     return 0;
-  if (args->sem_region.paddr >=
+  if (args->sem_region.size > 0 &&
+      args->sem_region.paddr >=
       args->sem_region.paddr + args->sem_region.size)
     return 0;
 
@@ -403,7 +404,7 @@ unsigned long create_enclave(unsigned long *eidptr, struct keystone_sbi_create_t
     goto free_region;
 
   // create a PMP region for shared enclave memory
-  if(pmp_region_init_atomic(sembase, semsize, PMP_PRI_ANY, &sem_region, 0))
+  if(semsize && pmp_region_init_atomic(sembase, semsize, PMP_PRI_ANY, &sem_region, 0))
     goto free_shared_region;
 
   // set pmp registers for private region (not shared)
@@ -412,7 +413,7 @@ unsigned long create_enclave(unsigned long *eidptr, struct keystone_sbi_create_t
 
   // cleanup some memory regions for sanity See issue #38
   clean_enclave_memory(utbase, utsize);
-  clean_enclave_memory(sembase, semsize);
+  if (semsize) clean_enclave_memory(sembase, semsize);
 
 
   // initialize enclave metadata
@@ -422,13 +423,16 @@ unsigned long create_enclave(unsigned long *eidptr, struct keystone_sbi_create_t
   enclaves[eid].regions[0].type = REGION_EPM;
   enclaves[eid].regions[1].pmp_rid = shared_region;
   enclaves[eid].regions[1].type = REGION_UTM;
-  enclaves[eid].regions[2].pmp_rid = sem_region;
-  enclaves[eid].regions[2].type = REGION_SEM;
+  if (semsize) {
+    enclaves[eid].regions[2].pmp_rid = sem_region;
+    enclaves[eid].regions[2].type = REGION_SEM;
+  }
+  
 
   // mark regions as not shared(for now. they're shared after initialized/connected)
   enclaves[eid].regions_shared[0] = 0;
   enclaves[eid].regions_shared[1] = 0;
-  enclaves[eid].regions_shared[2] = 0;
+  if (semsize) enclaves[eid].regions_shared[2] = 0;
 
   enclaves[eid].connector[0].valid = FALSE;
 #if __riscv_xlen == 32
@@ -504,6 +508,9 @@ unsigned long destroy_enclave(enclave_id eid)
   // 0. Let the platform specifics do cleanup/modifications
   platform_destroy_enclave(&enclaves[eid]);
 
+  // 0.5 Disconnect any connected regions
+  // As we do not implement ownership transfer yet, just skip this
+  // disconnect_all_enclave_regions(eid);
 
   // 1. clear all the data in the enclave pages
   // requires no lock (single runner)
@@ -677,7 +684,8 @@ unsigned long attest_enclave(uintptr_t report_ptr, uintptr_t data, uintptr_t siz
   sbi_memcpy(report.sm.hash, sm_hash, MDSIZE);
   sbi_memcpy(report.sm.public_key, sm_public_key, PUBLIC_KEY_SIZE);
   sbi_memcpy(report.sm.signature, sm_signature, SIGNATURE_SIZE);
-  sbi_memcpy(report.enclave.hash, enclaves[eid].hash, MDSIZE);
+  // sbi_memcpy(report.enclave.hash, enclaves[eid].hash, MDSIZE);
+  sbi_memcpy(report.enclave.hash, enclaves[eid].hash_history, MDSIZE);
   sm_sign(report.enclave.signature,
       &report.enclave,
       sizeof(struct enclave_report)
@@ -733,6 +741,7 @@ unsigned long get_sealing_key(uintptr_t sealing_key, uintptr_t key_ident,
  */
 unsigned long connect_enclaves(enclave_id eid1, enclave_id eid2)
 {
+  // printm("Connecting enclaves %d and %d\r\n", eid1, eid2);
   spin_lock(&encl_lock);
 
   if(!ENCLAVE_EXISTS(eid1) || !ENCLAVE_EXISTS(eid2)) {
@@ -774,6 +783,11 @@ unsigned long connect_enclaves(enclave_id eid1, enclave_id eid2)
   return SBI_ERR_SM_ENCLAVE_SUCCESS;
 }
 
+/*
+  Currently async/disconnect_enclaves do the same thing
+  But we really should free shared memory in disconnect
+  and move ownership in async_disconnect
+*/
 /* Disconnect the shared memory of two enclaves
  * Use the already allocated shared memory of enclave1 and map it 
  * into enclave 2

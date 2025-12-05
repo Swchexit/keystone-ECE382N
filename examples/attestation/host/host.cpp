@@ -169,6 +169,15 @@ SharedBuffer::setup_wrapped_ret_or_bad_ptr(const std::string& ret_val) {
 }
 
 void
+SharedBuffer::send_connect_request(unsigned int eid) {
+  printf("Host: Sending connect request for eid %u\n", eid);
+  int *ptr = (int*)(mailbox_);
+  validate_ptr((uintptr_t)ptr);
+  *ptr = eid;
+  printf("Host: Wrote connect request to mailbox\n");
+}
+
+void
 Host::print_buffer_wrapper(RunData& run_data) {
   SharedBuffer& shared_buffer = run_data.shared_buffer;
 

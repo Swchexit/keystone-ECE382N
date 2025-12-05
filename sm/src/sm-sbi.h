@@ -42,6 +42,9 @@ unsigned long
 sbi_sm_connect_enclaves(unsigned long eid1, unsigned long eid2);
 
 unsigned long
+sbi_sm_connect_enclaves_eapp(unsigned long eid2);
+
+unsigned long
 sbi_sm_sync_disconnect_enclaves(unsigned long eid1, unsigned long eid2);
 
 unsigned long

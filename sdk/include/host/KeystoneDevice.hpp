@@ -41,6 +41,7 @@ class KeystoneDevice {
   virtual Error create(uint64_t minPages);
   virtual uintptr_t initUTM(size_t size);
   virtual uintptr_t initSEM(size_t size);
+  virtual Error connectEnclaves(int eid);
   virtual Error finalize(
       uintptr_t runtimePhysAddr, uintptr_t eappPhysAddr, uintptr_t freePhysAddr,
       uintptr_t freeRequested);
@@ -48,6 +49,7 @@ class KeystoneDevice {
   virtual Error run(uintptr_t* ret);
   virtual Error resume(uintptr_t* ret);
   virtual void* map(uintptr_t addr, size_t size);
+  int getEid() { return eid; }
 };
 
 class MockKeystoneDevice : public KeystoneDevice {
@@ -62,6 +64,7 @@ class MockKeystoneDevice : public KeystoneDevice {
   Error create(uint64_t minPages);
   uintptr_t initUTM(size_t size);
   uintptr_t initSEM(size_t size);
+  Error connectEnclaves(int eid);
   Error finalize(
       uintptr_t runtimePhysAddr, uintptr_t eappPhysAddr, uintptr_t freePhysAddr,
       uintptr_t freeRequested);

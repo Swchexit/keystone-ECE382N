@@ -42,7 +42,7 @@ int map_untrusted_memory(uintptr_t untrusted_ptr, uintptr_t untrusted_size) {
 int map_shared_memory(uintptr_t sem_ptr, uintptr_t sem_size) {
   uintptr_t va        = EYRIE_SHARED_START;
   while (va < EYRIE_SHARED_START + sem_size) {
-    if (!map_page(vpn(va), ppn(sem_ptr), PTE_W | PTE_R | PTE_D)) {  // access and valid are set in map_page
+    if (!map_page(vpn(va), ppn(sem_ptr), PTE_W | PTE_R | PTE_D | PTE_U)) {  // access and valid are set in map_page
       return -1;
     }
     va += RISCV_PAGE_SIZE;
@@ -78,6 +78,8 @@ int load_runtime(uintptr_t dummy,
   //     "=r" (sem_connector_size), "=r" (sem_connector_vaddr)
   //   : /* no input operands */
   // );
+  printf("[loader] dram base: 0x%lx, dram size: 0x%lx, free base: 0x%lx, untrusted ptr: 0x%lx\n",
+         dram_base, dram_size, free_base, untrusted_ptr);
   printf("[loader] SEM base: 0x%lx, SEM size: 0x%lx, SEM connector base: 0x%lx, SEM connector size: 0x%lx\n",
          sem_base, sem_size, sem_connector_base, sem_connector_size);
 
@@ -116,17 +118,19 @@ int load_runtime(uintptr_t dummy,
 
   // map shared memory
   // Now we have sem_base and sem_size from the registers
-  if (sem_size > 0 && sem_base != 0) {
-    ret = map_shared_memory(sem_base, sem_size);
-    if (ret != 0) {
-      return ret;
-    }
-  }
-
   // map connected memory if exists
+  // FIXME: This is a hack to prevent a vm being mapped twice(the implementation has some limitations)
   if (sem_connector_size > 0 && sem_connector_base != 0) {
     ret = map_shared_memory(sem_connector_base, sem_connector_size);
     if (ret != 0) {
+      printf("[loader] failed to map connected memory\n");
+      return ret;
+    }
+  }
+  else if (sem_size > 0 && sem_base != 0) {
+    ret = map_shared_memory(sem_base, sem_size);
+    if (ret != 0) {
+      printf("[loader] failed to map shared memory\n");
       return ret;
     }
   }
