@@ -296,6 +296,30 @@ int keystone_resume_enclave(unsigned long data)
   return 0;
 }
 
+int get_smeid(unsigned long data)
+{
+  struct keystone_ioctl_create_enclave *enclp = (struct keystone_ioctl_create_enclave *) data;
+  unsigned long ueid = enclp->eid;
+  struct enclave* enclave;
+  enclave = get_enclave_by_id(ueid);
+
+  if (!enclave)
+  {
+    keystone_err("invalid enclave id\n");
+    return -EINVAL;
+  }
+
+  if (enclave->eid < 0) {
+    keystone_err("real enclave does not exist\n");
+    return -EINVAL;
+  }
+
+  // just reuse this slot
+  enclp->eid = enclave->eid;
+
+  return 0;
+}
+
 long keystone_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 {
   long ret;
@@ -340,6 +364,9 @@ long keystone_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
       break;
     case KEYSTONE_IOC_CON_ENCLAVES:
       ret = keystone_connect_enclave((unsigned long) data);
+      break;
+    case KEYSTONE_IOC_GET_SMEID:
+      ret = get_smeid((unsigned long) data);
       break;
     default:
       return -ENOSYS;

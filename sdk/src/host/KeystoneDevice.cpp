@@ -173,6 +173,23 @@ KeystoneDevice::initDevice(Params params) { // TODO: why does this need params
   return true;
 }
 
+unsigned int
+KeystoneDevice::getSMeid() {
+  struct keystone_ioctl_create_enclave encl;
+  encl.eid = eid;
+
+  /* if the enclave has never created */
+  if (eid < 0) {
+    return 0;
+  }
+
+  if (ioctl(fd, KEYSTONE_IOC_GET_SMEID, &encl)) {
+    perror("ioctl error");
+    return 0;
+  }
+  return encl.eid;
+}
+
 Error
 MockKeystoneDevice::create(uint64_t minPages) {
   eid = -1;

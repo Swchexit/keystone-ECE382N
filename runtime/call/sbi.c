@@ -79,6 +79,6 @@ sbi_get_sealing_key(uintptr_t key_struct, uintptr_t key_ident, uintptr_t len) {
 
 // So eid1 will be read from cpu_get_enclave_id() in m-mode(sm)
 uintptr_t
-sbi_connect_enclaves_eapp(uintptr_t eid2) {
-  return SBI_CALL_1(SBI_EXT_EXPERIMENTAL_KEYSTONE_ENCLAVE, SBI_SM_CON_ENCLAVES_EAPP, eid2);
+sbi_connect_enclaves_eapp(uintptr_t eid_other) {
+  return SBI_CALL_1(SBI_EXT_EXPERIMENTAL_KEYSTONE_ENCLAVE, SBI_SM_CON_ENCLAVES_EAPP, eid_other);
 }

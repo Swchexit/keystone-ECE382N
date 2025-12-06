@@ -74,6 +74,7 @@ static int sbi_ecall_keystone_enclave_handler(unsigned long extid, unsigned long
       break;
     case SBI_SM_CON_ENCLAVES_EAPP:
       retval = sbi_sm_connect_enclaves_eapp(regs->a0);
+      // retval = sbi_sm_connect_enclaves(regs->a0, regs->a1);
       break;
     case SBI_SM_SYNC_DISCON_ENCLAVES:
       retval = sbi_sm_sync_disconnect_enclaves(regs->a0, regs->a1);

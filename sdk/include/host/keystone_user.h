@@ -30,6 +30,8 @@
   _IOR(KEYSTONE_IOC_MAGIC, 0x08, struct keystone_ioctl_create_enclave)
 #define KEYSTONE_IOC_CON_ENCLAVES \
   _IOR(KEYSTONE_IOC_MAGIC, 0x09, struct keystone_ioctl_con_enclave)
+#define KEYSTONE_IOC_GET_SMEID \
+  _IOR(KEYSTONE_IOC_MAGIC, 0x0A, unsigned int)
 
 #define RT_NOEXEC 0
 #define USER_NOEXEC 1

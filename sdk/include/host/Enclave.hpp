@@ -68,6 +68,7 @@ class Enclave {
   Error run(uintptr_t* ret = nullptr);
   Error connect(int otherEid);
   int getEid() { return pDevice->getEid(); }
+  unsigned int getSMeid() {return pDevice->getSMeid(); }
 };
 
 uint64_t

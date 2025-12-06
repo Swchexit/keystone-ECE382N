@@ -14,6 +14,36 @@ using namespace Keystone;
 
 Enclave* enc;
 
+#define PERI_EID_FILE "/tmp/keystone_peri_eid"    
+#define CAN_START_FILE "/tmp/keystone_peri_can_start"
+
+
+static void wait_for_file(const char* path) {
+  printf("Waiting for %s...\n", path);
+  while (access(path, F_OK) != 0) {
+    usleep(100000);  // 100ms
+  }
+  printf("Found %s\n", path);
+}
+
+static void create_flag_file(const char* path) {
+  int fd = open(path, O_CREAT | O_WRONLY, 0644);
+  if (fd >= 0) {
+    close(fd);
+  }
+}
+
+static int read_eid_from_file(const char* path) {
+  int eid = -1;
+  FILE* f = fopen(path, "r");
+  if (f) {
+    fscanf(f, "%d", &eid);
+    fclose(f);
+    printf("Read receiver EID %d from %s\n", eid, path);
+  }
+  return eid;
+}
+
 void writeToUntrusted(Enclave &enc, unsigned int value);
 
 unsigned long print_string(char* str) {
@@ -69,8 +99,34 @@ void print_value_wrapper(void* buffer) {
 
 void custom_wrapper(void* buffer) {
   struct edge_call* edge_call = (struct edge_call*)buffer;
+  uintptr_t call_args;
+  unsigned long ret_val;
+  size_t arg_len;
+  if (edge_call_args_ptr(edge_call, &call_args, &arg_len) != 0) {
+    edge_call->return_data.call_status = CALL_STATUS_BAD_OFFSET;
+    return;
+  }
+
+  unsigned int command = *(unsigned int*)call_args;
   // Custom logic can be added here
-  writeToUntrusted(*enc, 67U);
+  if (command == 1) {
+    printf("Host: custom command 1, writing eid of main to untrusted memory\n");
+    writeToUntrusted(*enc, (unsigned int)enc->getEid());
+  } else if (command == 2) {
+    printf("Host: custom command 2, waiting for peripheral eid file\n");
+    wait_for_file(PERI_EID_FILE);
+    auto eid_other = read_eid_from_file(PERI_EID_FILE);
+    writeToUntrusted(*enc, (unsigned int)eid_other);
+    printf("Host: custom command 2, wrote peripheral eid %u to untrusted memory\n", (unsigned int)eid_other);
+  } else if (command == 3) {
+    printf("Host: custom command 3, creating can start file\n");
+    create_flag_file(CAN_START_FILE);
+  }
+  else {
+    // unknown command
+    printf("Host: custom_wrapper received unknown command %u\n", command);
+  }
+  
   // End of custom logic, return OK
   edge_call->return_data.call_status = CALL_STATUS_OK;
 }

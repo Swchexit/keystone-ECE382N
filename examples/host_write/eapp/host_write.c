@@ -9,6 +9,8 @@
 
 #define OCALL_PRINT_STRING 1
 #define OCALL_PRINT_VALUE 2
+#define OCALL_CUSTOM 3
+#define OCALL_WAIT 4
 
 #define EYRIE_UNTRUSTED_START 0xffffffff80000000
 #define EYRIE_SHARED_START 0xffffffffa0000000
@@ -22,6 +24,18 @@ unsigned long ocall_print_string(char* string) {
 unsigned long ocall_print_value(unsigned int value) {
   unsigned long retval;
   ocall(OCALL_PRINT_VALUE, &value, sizeof(unsigned int), &retval, sizeof(unsigned long));
+  return retval;
+}
+
+unsigned long ocall_custom() {
+  unsigned long retval;
+  ocall(OCALL_CUSTOM, NULL, 0, &retval, sizeof(unsigned long));
+  return retval;
+}
+
+unsigned long ocall_wait(unsigned int seconds) {
+  unsigned long retval;
+  ocall(OCALL_WAIT, &seconds, sizeof(unsigned int), &retval, sizeof(unsigned long));
   return retval;
 }
 
@@ -50,6 +64,16 @@ int main()
   }
   ocall_print_string("Enclave: Read value from untrusted memory at offset 0x2000:");
   ocall_print_value(value);
+
+  ocall_wait(5);
+
+  ocall_custom();
+  if (copy_from_shared(&value, 0x2000, sizeof(unsigned int))) { // offset by 8KB
+    ocall_print_string("Enclave: Failed to read from untrusted memory!");
+  }
+  ocall_print_string("Enclave: Read value from untrusted memory at offset 0x2000:");
+  ocall_print_value(value);
+
 
   EAPP_RETURN(0);
 }

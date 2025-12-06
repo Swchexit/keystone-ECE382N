@@ -50,6 +50,7 @@ class KeystoneDevice {
   virtual Error resume(uintptr_t* ret);
   virtual void* map(uintptr_t addr, size_t size);
   int getEid() { return eid; }
+  unsigned int getSMeid();
 };
 
 class MockKeystoneDevice : public KeystoneDevice {
