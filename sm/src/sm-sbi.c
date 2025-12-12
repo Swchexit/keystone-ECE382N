@@ -71,10 +71,10 @@ unsigned long sbi_sm_stop_enclave(struct sbi_trap_regs *regs, unsigned long requ
   return 0;
 }
 
-unsigned long sbi_sm_attest_enclave(uintptr_t report, uintptr_t data, uintptr_t size)
+unsigned long sbi_sm_attest_enclave(uintptr_t report, uintptr_t data, uintptr_t size, uintptr_t log_ptr, uintptr_t log_size)
 {
   unsigned long ret;
-  ret = attest_enclave(report, data, size, cpu_get_enclave_id());
+  ret = attest_enclave(report, data, size, log_ptr, log_size, cpu_get_enclave_id());
   return ret;
 }
 

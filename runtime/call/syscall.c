@@ -176,11 +176,12 @@ void handle_syscall(struct encl_ctx* ctx)
     break;
   case(RUNTIME_SYSCALL_ATTEST_ENCLAVE):;
     copy_from_user((void*)rt_copy_buffer_2, (void*)arg1, arg2); // nonce in rt_copy_buffer_2
-
-    ret = sbi_attest_enclave(rt_copy_buffer_1, rt_copy_buffer_2, arg2); // result in rt_copy_buffer_1, nonce in rt_copy_buffer_2, size of nonce in arg2
+    if (arg3 && arg4)
+      copy_from_user((void*)rt_copy_buffer_1, (void*)arg3, arg4); // copy the log from enclave to rt_copy_buffer_1
+    ret = sbi_attest_enclave(rt_copy_buffer_1, rt_copy_buffer_2, arg2, rt_copy_buffer_1, arg4); // result in rt_copy_buffer_1, nonce in rt_copy_buffer_2, size of nonce in arg2
 
     /* TODO we consistently don't have report size when we need it */
-    copy_to_user((void*)arg0, (void*)rt_copy_buffer_1, 2048);
+    copy_to_user((void*)arg0, (void*)rt_copy_buffer_1, 4096);
     //print_strace("[ATTEST] p1 0x%p->0x%p p2 0x%p->0x%p sz %lx = %lu\r\n",arg0,arg0_trans,arg1,arg1_trans,arg2,ret);
     break;
   case(RUNTIME_SYSCALL_GET_SEALING_KEY):;

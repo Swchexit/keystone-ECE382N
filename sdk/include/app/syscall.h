@@ -46,7 +46,7 @@ ocall(
 uintptr_t
 untrusted_mmap();
 int
-attest_enclave(void* report, void* data, size_t size);
+attest_enclave(void* report, void* data, size_t size, void* log_ptr, size_t log_size);
 
 int
 get_sealing_key(

@@ -20,8 +20,8 @@ copy_from_shared(void* dst, uintptr_t offset, size_t data_len) {
 }
 
 int
-attest_enclave(void* report, void* data, size_t size) {
-  return SYSCALL_3(RUNTIME_SYSCALL_ATTEST_ENCLAVE, report, data, size);
+attest_enclave(void* report, void* data, size_t size, void* log_ptr, size_t log_size) {
+  return SYSCALL_5(RUNTIME_SYSCALL_ATTEST_ENCLAVE, report, data, size, log_ptr, log_size);
 }
 
 /* returns sealing key */

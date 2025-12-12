@@ -14,7 +14,7 @@ void EAPP_ENTRY eapp_entry(){
   char* data = "nonce";
   char buffer[2048];
 
-  attest_enclave((void*) buffer, data, 5);
+  attest_enclave((void*) buffer, data, 5, 0, 0);
 
   ocall_copy_report(buffer, 2048);
 

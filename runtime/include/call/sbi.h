@@ -25,7 +25,7 @@ sbi_query_multimem(size_t *size);
 uintptr_t
 sbi_query_multimem_addr(uintptr_t *addr);
 uintptr_t
-sbi_attest_enclave(void* report, void* buf, uintptr_t len);
+sbi_attest_enclave(void* report, void* buf, uintptr_t len, void* log_ptr, uintptr_t log_size);
 uintptr_t
 sbi_get_sealing_key(uintptr_t key_struct, uintptr_t key_ident, uintptr_t len);
 uintptr_t

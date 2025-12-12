@@ -11,10 +11,17 @@
 #include "ed25519/ed25519.h"
 #include "verifier/json11.h"
 
+struct enc_info {
+  unsigned int eid;
+  char path[256];
+};
+
 struct enclave_report_t {
   byte hash[MDSIZE];
   uint64_t data_len;
+  uint64_t log_len;
   byte data[ATTEST_DATA_MAXLEN];
+  byte log[ATTEST_DATA_MAXLEN];
   byte signature[SIGNATURE_SIZE];
 };
 
@@ -48,6 +55,8 @@ class Report {
   int checkSignaturesOnly(const byte* dev_public_key);
   void* getDataSection();
   size_t getDataSize();
+  void* getLogSection();
+  size_t getLogSize();
   byte* getEnclaveHash();
   byte* getSmHash();
 };

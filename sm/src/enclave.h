@@ -105,7 +105,9 @@ struct enclave_report
 {
   byte hash[MDSIZE];
   uint64_t data_len;
+  uint64_t log_len;
   byte data[ATTEST_DATA_MAXLEN];
+  byte log[ATTEST_DATA_MAXLEN];
   byte signature[SIGNATURE_SIZE];
 };
 struct sm_report
@@ -142,9 +144,10 @@ unsigned long async_disconnect_enclaves(enclave_id eid1, enclave_id eid2);
 // callables from the enclave
 unsigned long exit_enclave(struct sbi_trap_regs *regs, enclave_id eid);
 unsigned long stop_enclave(struct sbi_trap_regs *regs, uint64_t request, enclave_id eid);
-unsigned long attest_enclave(uintptr_t report, uintptr_t data, uintptr_t size, enclave_id eid);
+unsigned long attest_enclave(uintptr_t report, uintptr_t data, uintptr_t size, uintptr_t log_ptr, uintptr_t log_size, enclave_id eid);
 // attestation
 unsigned long validate_and_hash_enclave(struct enclave* enclave);
+void add_to_hash_history(struct enclave* enc_to, struct enclave* enc_from, int connection_type);
 // TODO: These functions are supposed to be internal functions.
 void enclave_init_metadata(void);
 unsigned long copy_enclave_create_args(uintptr_t src, struct keystone_sbi_create_t* dest);

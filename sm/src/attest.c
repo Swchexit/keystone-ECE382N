@@ -48,6 +48,29 @@ unsigned long validate_and_hash_enclave(struct enclave* enclave){
   }
 
   hash_finalize(enclave->hash, &ctx);
+  // hash_store_ctx(&enclave->hash_ctx, &ctx);
+  // It starts with just the EPM hash, and then extended with all the connections we make
+  hash_finalize(enclave->hash_history, &ctx);
 
   return SBI_ERR_SM_ENCLAVE_SUCCESS;
+}
+
+/*
+ * Formula: new hash_history of eid_to = SHA3(hash_history || hash of eid_from || "CONNECT")
+ * or SHA3(hash_history || hash of eid_from || "DISCONNECT") for disconnect
+ */
+void add_to_hash_history(struct enclave* enc_to, struct enclave* enc_from, int connection_type){
+  hash_ctx ctx;
+  hash_init(&ctx);
+  // hash the previous history of eid_to
+  hash_extend(&ctx, (void*)enc_to->hash_history, MDSIZE);
+  // hash of eid_from
+  hash_extend(&ctx, (void*)enc_from->hash, MDSIZE);
+  // hash the "CONNECT" string
+  if (connection_type == 1)
+    hash_extend(&ctx, (void*)"CONNECT", 7);
+  else
+    hash_extend(&ctx, (void*)"DISCONNECT", 10);
+  // finalize into eid_to's hash_history
+  hash_finalize(enc_to->hash_history, &ctx);
 }

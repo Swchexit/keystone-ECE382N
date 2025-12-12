@@ -27,7 +27,7 @@ main() {
   copy_from_shared(nonce, retdata.offset, retdata.size);
 
   char buffer[2048];
-  attest_enclave((void*)buffer, nonce, retdata.size);
+  attest_enclave((void*)buffer, nonce, retdata.size, 0, 0);
 
   ocall(OCALL_COPY_REPORT, buffer, 2048, 0, 0);
 

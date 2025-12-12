@@ -27,7 +27,7 @@ unsigned long
 sbi_sm_resume_enclave(struct sbi_trap_regs *regs, unsigned long eid);
 
 unsigned long
-sbi_sm_attest_enclave(uintptr_t report, uintptr_t data, uintptr_t size);
+sbi_sm_attest_enclave(uintptr_t report, uintptr_t data, uintptr_t size, uintptr_t log_ptr, uintptr_t log_size);
 
 unsigned long
 sbi_sm_get_sealing_key(uintptr_t seal_key, uintptr_t key_ident, size_t key_ident_size);

@@ -8,6 +8,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <vector>
 #include "ed25519/ed25519.h"
 
 using json11::Json;
@@ -55,8 +56,23 @@ Report::fromJson(std::string jsonstr) {
   std::string enclave_hash = json["enclave"]["hash"].string_value();
   HexToBytes(report.enclave.hash, MDSIZE, enclave_hash);
   report.enclave.data_len  = json["enclave"]["datalen"].int_value();
+  report.enclave.log_len   = json["enclave"]["loglen"].int_value();
   std::string enclave_data = json["enclave"]["data"].string_value();
   HexToBytes(report.enclave.data, report.enclave.data_len, enclave_data);
+  
+  // Parse log entries (array of enc_info)
+  auto log_entries = json["enclave"]["log"].array_items();
+  size_t offset = 0;
+  for (const auto& entry : log_entries) {
+    if (offset + sizeof(struct enc_info) > ATTEST_DATA_MAXLEN) break;
+    struct enc_info* info = reinterpret_cast<struct enc_info*>(report.enclave.log + offset);
+    info->eid = entry["eid"].int_value();
+    std::string path = entry["path"].string_value();
+    strncpy(info->path, path.c_str(), sizeof(info->path) - 1);
+    info->path[sizeof(info->path) - 1] = '\0';
+    offset += sizeof(struct enc_info);
+  }
+  
   std::string enclave_signature = json["enclave"]["signature"].string_value();
   HexToBytes(report.enclave.signature, SIGNATURE_SIZE, enclave_signature);
 }
@@ -71,6 +87,22 @@ Report::stringfy() {
   if (report.enclave.data_len > ATTEST_DATA_MAXLEN) {
     return "{ \"error\" : \"invalid data length\" }";
   }
+  if (report.enclave.log_len > ATTEST_DATA_MAXLEN) {
+    return "{ \"error\" : \"invalid log length\" }";
+  }
+  
+  // Build log entries array
+  std::vector<Json> log_entries;
+  size_t num_entries = report.enclave.log_len / sizeof(struct enc_info);
+  for (size_t i = 0; i < num_entries; i++) {
+    struct enc_info* info = reinterpret_cast<struct enc_info*>(
+        report.enclave.log + i * sizeof(struct enc_info));
+    log_entries.push_back(Json::object{
+        {"eid", static_cast<int>(info->eid)},
+        {"path", std::string(info->path)},
+    });
+  }
+  
   auto json = Json::object{
       {"device_pubkey", BytesToHex(report.dev_public_key, PUBLIC_KEY_SIZE)},
       {
@@ -87,6 +119,8 @@ Report::stringfy() {
               {"datalen", static_cast<int>(report.enclave.data_len)},
               {"data",
                BytesToHex(report.enclave.data, report.enclave.data_len)},
+              {"loglen", static_cast<int>(report.enclave.log_len)},
+              {"log", log_entries},
               {"signature",
                BytesToHex(report.enclave.signature, SIGNATURE_SIZE)},
           },
@@ -117,6 +151,18 @@ Report::printPretty() {
   std::cout << "Enclave Data: "
             << BytesToHex(report.enclave.data, report.enclave.data_len)
             << std::endl;
+  
+  // Print log entries (connection history)
+  size_t num_entries = report.enclave.log_len / sizeof(struct enc_info);
+  if (num_entries > 0) {
+    std::cout << std::endl << "\t\t-- Connection Log (" << num_entries << " entries) --" << std::endl;
+    for (size_t i = 0; i < num_entries; i++) {
+      struct enc_info* info = reinterpret_cast<struct enc_info*>(
+          report.enclave.log + i * sizeof(struct enc_info));
+      std::cout << "  [" << i << "] EID: " << info->eid << ", Path: " << info->path << std::endl;
+    }
+  }
+  
   std::cout << "\t\t-- Device pubkey --" << std::endl;
   std::cout << BytesToHex(report.dev_public_key, PUBLIC_KEY_SIZE) << std::endl;
 }
@@ -158,7 +204,7 @@ Report::checkSignaturesOnly(const byte* dev_public_key) {
   /* verify Enclave report */
   enclave_valid = ed25519_verify(
       report.enclave.signature, reinterpret_cast<byte*>(&report.enclave),
-      MDSIZE + sizeof(uint64_t) + report.enclave.data_len,
+      MDSIZE + sizeof(uint64_t) + sizeof(uint64_t) + ATTEST_DATA_MAXLEN + report.enclave.log_len,
       report.sm.public_key);
 
   return sm_valid && enclave_valid;
@@ -172,4 +218,14 @@ Report::getDataSection() {
 size_t
 Report::getDataSize() {
   return report.enclave.data_len;
+}
+
+void*
+Report::getLogSection() {
+  return report.enclave.log;
+}
+
+size_t
+Report::getLogSize() {
+  return report.enclave.log_len;
 }

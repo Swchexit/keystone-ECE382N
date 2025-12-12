@@ -650,13 +650,16 @@ unsigned long resume_enclave(struct sbi_trap_regs *regs, enclave_id eid)
   return SBI_ERR_SM_ENCLAVE_SUCCESS;
 }
 
-unsigned long attest_enclave(uintptr_t report_ptr, uintptr_t data, uintptr_t size, enclave_id eid)
+unsigned long attest_enclave(uintptr_t report_ptr, uintptr_t data, uintptr_t size, uintptr_t log_ptr, uintptr_t log_size, enclave_id eid)
 {
   int attestable;
   struct report report;
   int ret;
 
   if (size > ATTEST_DATA_MAXLEN)
+    return SBI_ERR_SM_ENCLAVE_ILLEGAL_ARGUMENT;
+
+  if (log_size > ATTEST_DATA_MAXLEN)
     return SBI_ERR_SM_ENCLAVE_ILLEGAL_ARGUMENT;
 
   spin_lock(&encl_lock);
@@ -678,6 +681,19 @@ unsigned long attest_enclave(uintptr_t report_ptr, uintptr_t data, uintptr_t siz
     goto err_unlock;
   }
 
+  if (log_size > 0) {
+    ret = copy_enclave_data(&enclaves[eid], report.enclave.log, // FIXME: add this field
+        log_ptr, log_size);
+    report.enclave.log_len = log_size;
+
+    if (ret) {
+      ret = SBI_ERR_SM_ENCLAVE_NOT_ACCESSIBLE;
+      goto err_unlock;
+    }
+  } else {
+    report.enclave.log_len = 0;
+  }
+
   spin_unlock(&encl_lock); // Don't need to wait while signing, which might take some time
 
   sbi_memcpy(report.dev_public_key, dev_public_key, PUBLIC_KEY_SIZE);
@@ -690,7 +706,7 @@ unsigned long attest_enclave(uintptr_t report_ptr, uintptr_t data, uintptr_t siz
       &report.enclave,
       sizeof(struct enclave_report)
       - SIGNATURE_SIZE
-      - ATTEST_DATA_MAXLEN + size);
+      - ATTEST_DATA_MAXLEN + log_size);
 
   spin_lock(&encl_lock);
 
@@ -735,6 +751,8 @@ unsigned long get_sealing_key(uintptr_t sealing_key, uintptr_t key_ident,
  * Use the already allocated shared memory of enclave1 and map it 
  * into enclave 2
  * 
+ * Update hash_history of enc1 and enc2 to reflect the connection
+ * 
  * Note: this only works with rather static enclave configurations
  * SEM must be at enclaves[eid1].regions[2]
  * enclaves[eid2].connector[0] must be invalid
@@ -775,6 +793,8 @@ unsigned long connect_enclaves(enclave_id eid1, enclave_id eid2)
   enclaves[eid2].regions[3].type = REGION_CON;
   enclaves[eid1].regions_shared[2]++;
 
+  add_to_hash_history(&enclaves[eid1], &enclaves[eid2], 1);
+  add_to_hash_history(&enclaves[eid2], &enclaves[eid1], 1);
   // TODO: call enclave notify
   // TODO: disable interrupts
   spin_unlock(&encl_lock);
